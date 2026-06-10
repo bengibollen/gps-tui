@@ -1,0 +1,22 @@
+[colors]
+background = "black"
+foreground = "white"
+muted = "bright_black"
+border = "cyan"
+title = "bright_cyan"
+accent = "magenta"
+ok = "green"
+warn = "yellow"
+bad = "red"
+bar_low = "blue"
+bar_mid = "cyan"
+bar_high = "green"
+used = "bright_green"
+
+[symbols]
+fix = "󰆤"
+satellite = "󰞿"
+accuracy = "󰍉"
+speed = "󰓅"
+altitude = "󰖂"
+time = "󰥔"
