@@ -113,6 +113,18 @@ class Sky:
             satellites=satellites,
         )
 
+    def merged_with(self, previous: "Sky") -> "Sky":
+        satellites = self.satellites or previous.satellites
+        return Sky(
+            time=self.time or previous.time,
+            n_sat=self.n_sat if self.n_sat is not None else previous.n_sat,
+            u_sat=self.u_sat if self.u_sat is not None else previous.u_sat,
+            hdop=self.hdop if self.hdop is not None else previous.hdop,
+            vdop=self.vdop if self.vdop is not None else previous.vdop,
+            pdop=self.pdop if self.pdop is not None else previous.pdop,
+            satellites=satellites,
+        )
+
 
 @dataclass
 class GpsState:
@@ -134,7 +146,7 @@ class GpsState:
             self.max_speed_kmh = _max_optional(self.max_speed_kmh, self.fix.speed_kmh)
 
     def apply_sky(self, data: dict[str, Any]) -> None:
-        self.sky = Sky.from_sky(data)
+        self.sky = Sky.from_sky(data).merged_with(self.sky)
         self._touch()
 
     def reset_stats(self) -> None:
