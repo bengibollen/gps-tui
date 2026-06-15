@@ -301,10 +301,10 @@ also belongs behind an explicit confirmation because it changes logger behavior.
 
 ### Phase 1: Read-Only Device Inspection
 
-- Add a management/debug command outside the main TUI first, for example:
+Implemented as a management/debug command outside the main TUI:
 
 ```sh
-python3 -m gps_tui.device --device /dev/ttyUSB0 status
+gps-tui-device locus-status --device /dev/ttyUSB0
 ```
 
 - Query firmware with `PMTK605`.
@@ -314,18 +314,42 @@ python3 -m gps_tui.device --device /dev/ttyUSB0 status
 
 ### Phase 2: LOCUS Raw Dump
 
-- Add:
+Implemented as:
 
 ```sh
-python3 -m gps_tui.device --device /dev/ttyUSB0 dump-locus --output locus.txt
+gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
 ```
+
+If `--output` is omitted, the command writes a compact timestamped filename:
+
+```text
+yyyymmddhhmmss.pmtklox
+```
+
+For now this is based on dump time unless a recognizable textual timestamp is
+present in the captured data. Once the LOCUS record format is decoded, the
+filename should use the first logged track point timestamp.
 
 - Store raw `PMTKLOX` lines.
 - Include metadata from `PMTK183`.
 - Add timeout/progress handling.
 - Keep gpsd interaction explicit:
   - either stop gpsd before direct serial access
-  - or use a gpsd/gpsctl path if testing proves it captures full dumps
+- or use a gpsd/gpsctl path if testing proves it captures full dumps
+
+`dump-locus` is also available as an alias, but `locus-dump` is the preferred
+name for consistency with `locus-status`.
+
+GPX conversion is not enabled yet. LOCUS dumps arrive as `PMTKLOX` hex chunks,
+and the first implementation should preserve those raw chunks exactly. Once we
+have a sample from the actual Adafruit module, a parser can convert the logged
+position records to GPX while optionally keeping module-specific metadata in the
+raw `.pmtklox` file.
+
+The Adafruit guide describes LOCUS as storing date, time, latitude, longitude,
+and altitude. It does not describe separate start/stop event records. Treat
+start/stop as logger state changes rather than track events unless a real dump
+from this module proves otherwise.
 
 ### Phase 3: Safe Writes
 

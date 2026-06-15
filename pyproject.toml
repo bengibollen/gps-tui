@@ -6,10 +6,11 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Danne" }]
-dependencies = []
+dependencies = ["pyserial>=3.5"]
 
 [project.scripts]
 gps-tui = "gps_tui.app:main"
+gps-tui-device = "gps_tui.device:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -31,6 +31,19 @@ python3 -m pip install -e .
 gps-tui
 ```
 
+Device management commands:
+
+```sh
+gps-tui-device locus-status --device /dev/ttyUSB0
+gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
+```
+
+Without `--output`, `locus-dump` writes to a compact timestamped filename:
+
+```text
+yyyymmddhhmmss.pmtklox
+```
+
 ## Options
 
 ```text
@@ -49,6 +62,27 @@ p        pause/resume updates
 r        reset local min/max stats
 t        reload theme file
 ```
+
+## LOCUS Logger Commands
+
+The Adafruit Ultimate GPS module has a LOCUS onboard logger. `gps-tui-device`
+contains maintenance commands for that logger.
+
+These commands use direct serial access. If `gpsd` is running and owns the GPS
+device, stop it before dumping LOCUS data:
+
+```sh
+sudo systemctl stop gpsd
+gps-tui-device locus-status --device /dev/ttyUSB0
+gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
+sudo systemctl start gpsd
+```
+
+`locus-dump` writes raw `PMTKLOX` lines. GPX export is intentionally not enabled
+yet; the raw dump should be captured from the real module first so the LOCUS
+record layout can be verified without losing data. The default filename is
+based on the dump time for now. Once LOCUS records are decoded, it should use
+the first track point timestamp instead.
 
 ## gpsd Setup Notes
 
