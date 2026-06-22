@@ -14,6 +14,8 @@ Best next panels to build first:
    builds on fields already available in `TPV`.
 3. **Raw gpsd Messages Panel**: not glamorous, but very useful while testing
    against the real Pi and GPS unit.
+4. **Priority-Based Responsive Rendering**: make existing panels degrade
+   gracefully by hiding lower-priority lines and sections when space is tight.
 
 Good second wave:
 
@@ -342,3 +344,55 @@ Recommendation:
 - **Treat as a separate feature track.** Start with read-only detection and
   capability reporting, then add logger download, then add carefully confirmed
   configuration writes.
+
+## 16. Priority-Based Responsive Rendering
+
+Make panels decide what to show based on available space instead of hardcoded
+height checks.
+
+Concept:
+
+- Describe each visible line or subsection with:
+  - label
+  - value/render callback
+  - priority
+  - minimum width/height
+- Sort or group by priority.
+- Render only what fits.
+- Hide section headers unless at least one item from that section fits.
+- Keep critical GPS data visible before secondary context.
+
+Initial priority scheme:
+
+```text
+0 critical   fix mode, latitude, longitude, accuracy
+1 important  altitude, speed, satellites used, UTC
+2 useful     track, climb, best accuracy, max speed
+3 context    nearest place, location distance, place lookup status
+4 debug      raw device info, extra diagnostics
+```
+
+Possible section priority:
+
+```text
+GPS Fix       priority 0
+Motion        priority 1
+Session Stats priority 2
+Location      priority 3
+Debug         priority 4
+```
+
+Implementation notes:
+
+- Start with the GPS pane only.
+- Replace hardcoded checks such as `height >= 13` with a small layout helper.
+- The layout helper should reserve borders and titles, then allocate rows by
+  priority.
+- Keep the result deterministic so the same terminal size always produces the
+  same visible fields.
+- Later reuse the same helper for satellite, timeline, and debug panels.
+
+Recommendation:
+
+- **Build before adding many more panels.** It will keep the TUI usable across
+  SSH windows, laptop terminals, and future small displays.
