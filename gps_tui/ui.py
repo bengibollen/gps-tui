@@ -168,21 +168,6 @@ def _draw_info(
     row += 1
     _kv(stdscr, row, x + 2, inner_w, "Longitude", _coord(fix.lon, "E", "W"), palette.attr("foreground"), palette)
     row += 1
-    if state.location is not None and height >= 11:
-        _kv(
-            stdscr,
-            row,
-            x + 2,
-            inner_w,
-            "Nearest",
-            f"{state.location.name} ({state.location.distance_text})",
-            palette.attr("accent"),
-            palette,
-        )
-        row += 1
-    elif state.location_status and state.location_status != "places disabled" and height >= 11:
-        _kv(stdscr, row, x + 2, inner_w, "Nearest", state.location_status, palette.attr("muted"), palette)
-        row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('accuracy')} Accuracy", _accuracy(fix), _accuracy_attr(fix.eph_m, palette), palette)
     row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('altitude')} Altitude", _meters(fix.alt_m), palette.attr("foreground"), palette)
@@ -202,6 +187,42 @@ def _draw_info(
         _kv(stdscr, row, x + 2, inner_w, "Best accuracy", _meters(state.min_eph_m), palette.attr("accent"), palette)
         row += 1
         _kv(stdscr, row, x + 2, inner_w, "Max speed", _kmh(state.max_speed_kmh), palette.attr("accent"), palette)
+
+    _draw_location_section(stdscr, rect, state, palette)
+
+
+def _draw_location_section(
+    stdscr: Any,
+    rect: tuple[int, int, int, int],
+    state: GpsState,
+    palette: Palette,
+) -> None:
+    y, x, height, width = rect
+    if height < 12:
+        return
+
+    inner_w = width - 4
+    section_y = y + height - 4
+    if section_y < y + 8:
+        return
+
+    _add(stdscr, section_y, x + 2, "─" * inner_w, palette.attr("border"))
+    _add(stdscr, section_y, x + 4, " Nearest ", palette.attr("title", curses.A_BOLD))
+
+    if state.location is not None:
+        lines = _wrap_text(state.location.name, inner_w)
+        if lines:
+            _add(stdscr, section_y + 1, x + 2, lines[0], palette.attr("accent"))
+        if len(lines) > 1 and height >= 14:
+            _add(stdscr, section_y + 2, x + 2, lines[1], palette.attr("accent"))
+        else:
+            _add(stdscr, section_y + 2, x + 2, f"distance {state.location.distance_text}", palette.attr("muted"))
+        if len(lines) > 1 and height >= 14:
+            _add(stdscr, section_y + 3, x + 2, f"distance {state.location.distance_text}", palette.attr("muted"))
+        return
+
+    if state.location_status and state.location_status != "places disabled":
+        _add(stdscr, section_y + 1, x + 2, state.location_status[:inner_w], palette.attr("muted"))
 
 
 def _draw_satellites(
@@ -270,6 +291,25 @@ def _add(stdscr: Any, y: int, x: int, text: str, attr: int = 0) -> None:
         stdscr.addnstr(y, max(0, x), text, max(0, width - max(0, x)), attr)
     except curses.error:
         pass
+
+
+def _wrap_text(text: str, width: int) -> list[str]:
+    if width <= 0:
+        return []
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+        if len(candidate) <= width:
+            current = candidate
+        else:
+            if current:
+                lines.append(current)
+            current = word[:width]
+    if current:
+        lines.append(current)
+    return lines or [""]
 
 
 def _coord(value: float | None, positive: str, negative: str) -> str:
