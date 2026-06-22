@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from unittest import TestCase
 
-from gps_tui.device import _default_dump_path, _first_text_timestamp
+from gps_tui.device import _default_dump_path, _first_text_timestamp, _gpsd_device_request
 
 
 class DeviceTests(TestCase):
@@ -25,3 +25,11 @@ class DeviceTests(TestCase):
         )
 
         self.assertEqual(timestamp, datetime(2011, 5, 28, 9, 27, 51, tzinfo=timezone.utc))
+
+    def test_gpsd_device_request_hex_encodes_pmtk_command(self) -> None:
+        request = _gpsd_device_request("/dev/ttyUSB0", "PMTK183")
+
+        self.assertEqual(
+            request,
+            '?DEVICE={"path":"/dev/ttyUSB0","hexdata":"24504d544b3138332a33380d0a"};\n',
+        )

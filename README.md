@@ -68,14 +68,27 @@ t        reload theme file
 The Adafruit Ultimate GPS module has a LOCUS onboard logger. `gps-tui-device`
 contains maintenance commands for that logger.
 
-These commands use direct serial access. If `gpsd` is running and owns the GPS
-device, stop it before dumping LOCUS data:
+By default these commands use gpsd's client protocol:
 
 ```sh
-sudo systemctl stop gpsd
 gps-tui-device locus-status --device /dev/ttyUSB0
 gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
-sudo systemctl start gpsd
+```
+
+Internally, `gps-tui-device` opens a gpsd raw watch and sends PMTK commands with
+gpsd `?DEVICE` hex writes. This lets gpsd keep ownership of the GPS device while
+the tool captures `PMTKLOG` and `PMTKLOX` responses from the raw stream.
+
+Direct serial is still available as a fallback:
+
+```sh
+gps-tui-device locus-status --transport serial --device /dev/ttyUSB0
+```
+
+The serial fallback requires `pyserial`:
+
+```sh
+python3 -m pip install pyserial
 ```
 
 `locus-dump` writes raw `PMTKLOX` lines. GPX export is intentionally not enabled

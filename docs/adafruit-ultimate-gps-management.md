@@ -49,15 +49,16 @@ Use PMTK/module management for:
 - changing baud rate
 - LOCUS logger status/start/stop/dump/erase
 
-There are two likely ways to send PMTK commands:
+There are two ways to send PMTK commands:
 
-1. Through `gpsctl -x`, while gpsd owns the device.
+1. Through gpsd `?DEVICE` hex writes, while gpsd owns the device.
 2. By opening `/dev/ttyUSB0` directly, with gpsd stopped or not using the port.
 
-`gpsctl` can send control strings through gpsd with `-x`, but it expects a
-complete NMEA command including `$`, checksum, and line ending for text packets.
-Direct serial access gives more control for reading long LOCUS dumps, but the
-app must avoid fighting gpsd for the same serial device.
+`gps-tui-device` uses the gpsd path by default. It opens a raw watch, sends PMTK
+commands through `?DEVICE={"path":...,"hexdata":...}`, and captures `PMTKLOG` or
+`PMTKLOX` from the raw stream. This follows the same basic path as `gpsctl -x`
+without shelling out. Direct serial remains a fallback, but the app must avoid
+fighting gpsd for the same serial device when using that mode.
 
 Sources:
 
@@ -310,7 +311,7 @@ gps-tui-device locus-status --device /dev/ttyUSB0
 - Query firmware with `PMTK605`.
 - Query LOCUS status with `PMTK183`.
 - Print raw responses and parsed fields.
-- No writes.
+- PMTK is sent through gpsd by default.
 
 ### Phase 2: LOCUS Raw Dump
 
@@ -333,9 +334,8 @@ filename should use the first logged track point timestamp.
 - Store raw `PMTKLOX` lines.
 - Include metadata from `PMTK183`.
 - Add timeout/progress handling.
-- Keep gpsd interaction explicit:
-  - either stop gpsd before direct serial access
-- or use a gpsd/gpsctl path if testing proves it captures full dumps
+- Use gpsd raw watch plus `?DEVICE` by default.
+- Keep direct serial available as a fallback with `--transport serial`.
 
 `dump-locus` is also available as an alias, but `locus-dump` is the preferred
 name for consistency with `locus-status`.

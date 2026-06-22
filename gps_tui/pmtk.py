@@ -62,8 +62,8 @@ class LocusStatus:
             raw=sentence.raw,
             serial=_int_at(values, 0),
             log_type=_int_at(values, 1),
-            mode=_int_at(values, 2),
-            content=_int_at(values, 3),
+            mode=_int_at(values, 2, base=16),
+            content=_int_at(values, 3, base=16),
             interval=_int_at(values, 4),
             distance=_int_at(values, 5),
             speed=_int_at(values, 6),
@@ -136,14 +136,14 @@ def parse_ack(sentence: Sentence) -> Ack | None:
     return Ack(command=fields[1], flag=_parse_int(fields[2]))
 
 
-def _int_at(values: list[str], index: int) -> int | None:
+def _int_at(values: list[str], index: int, base: int = 10) -> int | None:
     if index >= len(values):
         return None
-    return _parse_int(values[index])
+    return _parse_int(values[index], base=base)
 
 
-def _parse_int(value: str) -> int | None:
+def _parse_int(value: str, base: int = 10) -> int | None:
     try:
-        return int(value)
+        return int(value, base)
     except ValueError:
         return None

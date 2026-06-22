@@ -38,3 +38,18 @@ class PmtkTests(TestCase):
         self.assertEqual(status.status_text, "logging")
         self.assertEqual(status.records, 123)
         self.assertEqual(status.percent_used, 42)
+
+    def test_parse_real_adafruit_locus_status_with_hex_mode(self) -> None:
+        sentence = parse_sentence("$PMTKLOG,0,1,a,31,15,0,0,1,0,0*11")
+        assert sentence is not None
+
+        status = LocusStatus.from_sentence(sentence)
+
+        self.assertEqual(status.serial, 0)
+        self.assertEqual(status.type_text, "stop when full")
+        self.assertEqual(status.mode, 10)
+        self.assertEqual(status.content, 49)
+        self.assertEqual(status.interval, 15)
+        self.assertEqual(status.status_text, "logging")
+        self.assertEqual(status.records, 0)
+        self.assertEqual(status.percent_used, 0)

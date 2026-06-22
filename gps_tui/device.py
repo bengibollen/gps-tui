@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import socket
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ from .pmtk import Ack, LocusStatus, Sentence, build_command, parse_ack, parse_se
 
 DEFAULT_DEVICE = "/dev/ttyUSB0"
 DEFAULT_BAUD = 9600
+DEFAULT_GPSD_HOST = "localhost"
+DEFAULT_GPSD_PORT = 2947
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,84 @@ class SerialGps:
         return sentences
 
 
+class GpsdGps:
+    def __init__(self, host: str, port: int, device: str, timeout: float) -> None:
+        self.host = host
+        self.port = port
+        self.device = device
+        self.timeout = timeout
+        self._socket: socket.socket | None = None
+        self._stream: Any = None
+
+    def __enter__(self) -> "GpsdGps":
+        self._socket = socket.create_connection((self.host, self.port), timeout=self.timeout)
+        self._socket.settimeout(self.timeout)
+        self._stream = self._socket.makefile("rb")
+        self._send_gpsd("?WATCH={\"enable\":true,\"raw\":1};\n")
+        self._read_until_watch()
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        if self._stream is not None:
+            self._stream.close()
+        if self._socket is not None:
+            self._socket.close()
+
+    def send(self, payload: str) -> None:
+        self._send_gpsd(_gpsd_device_request(self.device, payload))
+
+    def read_sentences(
+        self,
+        should_stop: Callable[[Sentence], bool],
+        max_lines: int,
+    ) -> list[Sentence]:
+        sentences: list[Sentence] = []
+        raw_lines = 0
+        while raw_lines < max_lines:
+            line = self._readline()
+            if line is None:
+                break
+            raw_lines += 1
+            if not line.startswith("$"):
+                continue
+            sentence = parse_sentence(line)
+            if sentence is None:
+                continue
+            sentences.append(sentence)
+            if should_stop(sentence):
+                break
+        return sentences
+
+    def _send_gpsd(self, command: str) -> None:
+        if self._socket is None:
+            raise RuntimeError("gpsd socket is not connected")
+        self._socket.sendall(command.encode("ascii"))
+
+    def _read_until_watch(self) -> None:
+        for _ in range(20):
+            line = self._readline()
+            if line is None:
+                return
+            if line.startswith("{"):
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if data.get("class") == "WATCH":
+                    return
+
+    def _readline(self) -> str | None:
+        if self._stream is None:
+            return None
+        try:
+            raw = self._stream.readline()
+        except TimeoutError:
+            return None
+        if not raw:
+            return None
+        return raw.decode("ascii", errors="replace").strip()
+
+
 def main() -> None:
     args = _parse_args()
     if args.command in {"locus-status", "status"}:
@@ -80,7 +161,7 @@ def main() -> None:
 
 
 def _locus_status(args: argparse.Namespace) -> None:
-    with SerialGps(args.device, args.baud, args.timeout) as gps:
+    with _open_transport(args) as gps:
         gps.send("PMTK183")
         sentences = gps.read_sentences(
             lambda sentence: sentence.kind == "PMTKLOG" or _is_ack_for(sentence, "183"),
@@ -125,7 +206,7 @@ def _locus_dump(args: argparse.Namespace) -> None:
             return False
         return seen_complete and _is_ack_for(sentence, "622")
 
-    with SerialGps(args.device, args.baud, args.timeout) as gps:
+    with _open_transport(args) as gps:
         gps.send(command)
         sentences = gps.read_sentences(should_stop, max_lines=args.max_lines)
 
@@ -164,8 +245,21 @@ def _locus_dump(args: argparse.Namespace) -> None:
 
 def _parse_args() -> argparse.Namespace:
     common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--transport",
+        choices=("gpsd", "serial"),
+        default="gpsd",
+        help="device command transport, default gpsd",
+    )
+    common.add_argument("--host", default=DEFAULT_GPSD_HOST, help=f"gpsd host, default {DEFAULT_GPSD_HOST}")
+    common.add_argument("--port", type=int, default=DEFAULT_GPSD_PORT, help=f"gpsd port, default {DEFAULT_GPSD_PORT}")
     common.add_argument("--device", default=DEFAULT_DEVICE, help=f"serial device, default {DEFAULT_DEVICE}")
-    common.add_argument("--baud", type=int, default=DEFAULT_BAUD, help=f"serial baud rate, default {DEFAULT_BAUD}")
+    common.add_argument(
+        "--baud",
+        type=int,
+        default=DEFAULT_BAUD,
+        help=f"serial baud rate for --transport serial, default {DEFAULT_BAUD}",
+    )
     common.add_argument("--timeout", type=float, default=2.0, help="serial read/write timeout in seconds")
     common.add_argument("--max-lines", type=int, default=20000, help="maximum response lines to read")
     common.add_argument("--json", action="store_true", help="print machine-readable JSON")
@@ -188,6 +282,20 @@ def _parse_args() -> argparse.Namespace:
     dump_alias.add_argument("--full", action="store_true", help="dump full flash instead of used flash")
 
     return parser.parse_args()
+
+
+def _open_transport(args: argparse.Namespace) -> GpsdGps | SerialGps:
+    if args.transport == "serial":
+        return SerialGps(args.device, args.baud, args.timeout)
+    return GpsdGps(args.host, args.port, args.device, args.timeout)
+
+
+def _gpsd_device_request(device: str, payload: str) -> str:
+    request = {
+        "path": device,
+        "hexdata": build_command(payload).encode("ascii").hex(),
+    }
+    return f"?DEVICE={json.dumps(request, separators=(',', ':'))};\n"
 
 
 def _find_locus_status(sentences: list[Sentence]) -> LocusStatus | None:
