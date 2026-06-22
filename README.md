@@ -94,8 +94,10 @@ python3 -m gps_tui.geonames --data-dir data/geonames 57.70716 11.96679
 ```
 
 When the files are present, the main TUI loads them on startup and shows a
-`Nearest` line in the GPS panel. The lookup is approximate: country and region
-come from the nearest GeoNames city, not from border polygons.
+`Nearest` line in the GPS panel. GeoNames loading happens in the background so
+the TUI can start immediately even on the Pi. The lookup is approximate:
+country and region come from the nearest GeoNames city, not from border
+polygons.
 
 ## LOCUS Logger Commands
 

@@ -153,6 +153,7 @@ class GpsState:
     min_eph_m: float | None = None
     max_speed_kmh: float | None = None
     location: Location | None = None
+    location_status: str = "places disabled"
 
     def apply_tpv(self, data: dict[str, Any]) -> None:
         self.fix = Fix.from_tpv(data)

@@ -180,6 +180,9 @@ def _draw_info(
             palette,
         )
         row += 1
+    elif state.location_status and state.location_status != "places disabled" and height >= 11:
+        _kv(stdscr, row, x + 2, inner_w, "Nearest", state.location_status, palette.attr("muted"), palette)
+        row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('accuracy')} Accuracy", _accuracy(fix), _accuracy_attr(fix.eph_m, palette), palette)
     row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('altitude')} Altitude", _meters(fix.alt_m), palette.attr("foreground"), palette)

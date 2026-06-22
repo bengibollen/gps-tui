@@ -28,9 +28,9 @@ def main() -> None:
     worker = threading.Thread(target=_reader, args=(iterator, queue), daemon=True)
     worker.start()
 
-    geonames = _load_geonames(args.geonames_dir)
-    if geonames is not None:
-        location_worker = threading.Thread(target=_location_reader, args=(state, geonames), daemon=True)
+    if args.geonames_dir is not None:
+        state.location_status = "loading places"
+        location_worker = threading.Thread(target=_location_reader, args=(state, args.geonames_dir), daemon=True)
         location_worker.start()
 
     curses.wrapper(
@@ -50,7 +50,13 @@ def _reader(iterator: Any, queue: Queue[dict[str, Any]]) -> None:
             pass
 
 
-def _location_reader(state: GpsState, geonames: GeoNamesIndex) -> None:
+def _location_reader(state: GpsState, data_dir: Path) -> None:
+    geonames = _load_geonames(data_dir)
+    if geonames is None:
+        state.location_status = "places unavailable"
+        return
+
+    state.location_status = f"places loaded: {len(geonames.cities)}"
     last_lookup: tuple[float, float] | None = None
     while True:
         fix = state.fix
@@ -63,7 +69,10 @@ def _location_reader(state: GpsState, geonames: GeoNamesIndex) -> None:
             result = geonames.nearest(fix.lat, fix.lon)
             if result is not None:
                 state.location = Location(name=result.display_name, distance_km=result.distance_km)
+                state.location_status = "places ready"
                 last_lookup = (fix.lat, fix.lon)
+            else:
+                state.location_status = "no nearby place"
 
         time.sleep(30.0)
 
