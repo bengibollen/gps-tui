@@ -241,6 +241,20 @@ PMTK001,185,3
 
 This should require confirmation because it changes module state.
 
+Implemented as:
+
+```sh
+gps-tui-device locus-start --device /dev/ttyUSB0
+gps-tui-device locus-stop --device /dev/ttyUSB0
+```
+
+Observed on the Adafruit MTK3333/PA1616D module:
+
+```text
+PMTKLOG status 0 = logging
+PMTKLOG status 1 = stopped
+```
+
 ### Erase Logger Flash
 
 ```text

@@ -74,7 +74,7 @@ class LocusStatus:
 
     @property
     def status_text(self) -> str:
-        return {0: "stopped", 1: "logging"}.get(self.status, "unknown")
+        return {0: "logging", 1: "stopped"}.get(self.status, "unknown")
 
     @property
     def type_text(self) -> str:

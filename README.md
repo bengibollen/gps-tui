@@ -35,6 +35,8 @@ Device management commands:
 
 ```sh
 gps-tui-device locus-status --device /dev/ttyUSB0
+gps-tui-device locus-start --device /dev/ttyUSB0
+gps-tui-device locus-stop --device /dev/ttyUSB0
 gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
 ```
 
@@ -52,6 +54,7 @@ yyyymmddhhmmss.pmtklox
 --simulate            use generated GPS data instead of gpsd
 --theme PATH          theme TOML file, default themes/btop-ish.toml
 --refresh SECONDS     screen refresh interval, default 0.5
+--geonames-dir PATH   GeoNames data directory, default data/geonames
 ```
 
 ## Keys
@@ -63,6 +66,37 @@ r        reset local min/max stats
 t        reload theme file
 ```
 
+## Offline Place Names
+
+`gps-tui` can show the nearest populated place using offline GeoNames data. It
+uses:
+
+- `cities1000.txt`
+- `countryInfo.txt`
+- `admin1CodesASCII.txt`
+
+Download them into `data/geonames`:
+
+```sh
+mkdir -p data/geonames
+cd data/geonames
+curl -LO https://download.geonames.org/export/dump/cities1000.zip
+curl -LO https://download.geonames.org/export/dump/countryInfo.txt
+curl -LO https://download.geonames.org/export/dump/admin1CodesASCII.txt
+unzip -o cities1000.zip
+cd ../..
+```
+
+Test a lookup:
+
+```sh
+python3 -m gps_tui.geonames --data-dir data/geonames 57.70716 11.96679
+```
+
+When the files are present, the main TUI loads them on startup and shows a
+`Nearest` line in the GPS panel. The lookup is approximate: country and region
+come from the nearest GeoNames city, not from border polygons.
+
 ## LOCUS Logger Commands
 
 The Adafruit Ultimate GPS module has a LOCUS onboard logger. `gps-tui-device`
@@ -72,6 +106,8 @@ By default these commands use gpsd's client protocol:
 
 ```sh
 gps-tui-device locus-status --device /dev/ttyUSB0
+gps-tui-device locus-start --device /dev/ttyUSB0
+gps-tui-device locus-stop --device /dev/ttyUSB0
 gps-tui-device locus-dump --device /dev/ttyUSB0 --output locus.pmtklox
 ```
 
@@ -96,6 +132,13 @@ yet; the raw dump should be captured from the real module first so the LOCUS
 record layout can be verified without losing data. The default filename is
 based on the dump time for now. Once LOCUS records are decoded, it should use
 the first track point timestamp instead.
+
+For this Adafruit/MTK module, observed LOCUS status values are:
+
+```text
+0 = logging
+1 = stopped
+```
 
 ## gpsd Setup Notes
 

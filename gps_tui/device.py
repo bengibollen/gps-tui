@@ -26,6 +26,34 @@ class LocusDump:
     complete: bool
     ack: Ack | None
 
+    @property
+    def expected_packets(self) -> int | None:
+        for line in self.lines:
+            sentence = parse_sentence(line)
+            if sentence is not None and sentence.kind == "PMTKLOX" and _field(sentence, 1) == "0":
+                value = _field(sentence, 2)
+                if value is None:
+                    return None
+                try:
+                    return int(value)
+                except ValueError:
+                    return None
+        return None
+
+    @property
+    def data_packets(self) -> int:
+        count = 0
+        for line in self.lines:
+            sentence = parse_sentence(line)
+            if sentence is not None and sentence.kind == "PMTKLOX" and _field(sentence, 1) == "1":
+                count += 1
+        return count
+
+    @property
+    def is_erased(self) -> bool:
+        words = _locus_dump_words(self.lines)
+        return bool(words) and all(word == "FFFFFFFF" for word in words)
+
 
 class SerialGps:
     def __init__(self, device: str, baud: int, timeout: float) -> None:
@@ -156,6 +184,10 @@ def main() -> None:
         _locus_status(args)
     elif args.command in {"locus-dump", "dump-locus"}:
         _locus_dump(args)
+    elif args.command == "locus-start":
+        _locus_control(args, action="start", payload="PMTK185,0")
+    elif args.command == "locus-stop":
+        _locus_control(args, action="stop", payload="PMTK185,1")
     else:
         raise SystemExit(f"unknown command: {args.command}")
 
@@ -225,7 +257,10 @@ def _locus_dump(args: argparse.Namespace) -> None:
                     "output": str(output),
                     "command": command,
                     "lines": len(dump.lines),
+                    "expected_packets": dump.expected_packets,
+                    "data_packets": dump.data_packets,
                     "complete": dump.complete,
+                    "erased": dump.is_erased,
                     "ack": _ack_payload(dump.ack),
                 },
                 indent=2,
@@ -235,12 +270,51 @@ def _locus_dump(args: argparse.Namespace) -> None:
         return
 
     print(f"Wrote {len(dump.lines)} LOCUS dump lines to {output}")
+    if dump.expected_packets is not None:
+        print(f"Expected data packets: {dump.expected_packets}")
+    print(f"Data packets received: {dump.data_packets}")
+    print(f"Flash contents: {'erased/empty' if dump.is_erased else 'contains non-empty data'}")
     print(f"Complete marker received: {'yes' if dump.complete else 'no'}")
     if dump.ack is not None:
         print(f"Ack: {dump.ack.command} {dump.ack.flag} ({dump.ack.message})")
     if not dump.complete:
         print("Warning: no PMTKLOX completion marker was received before timeout.", file=sys.stderr)
         raise SystemExit(2)
+
+
+def _locus_control(args: argparse.Namespace, action: str, payload: str) -> None:
+    with _open_transport(args) as gps:
+        gps.send(payload)
+        sentences = gps.read_sentences(
+            lambda sentence: _is_ack_for(sentence, "185"),
+            max_lines=args.max_lines,
+        )
+
+    ack = _find_ack(sentences, "185")
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "action": action,
+                    "payload": payload,
+                    "ack": _ack_payload(ack),
+                    "raw": [sentence.raw for sentence in sentences],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+
+    if ack is None:
+        print(f"LOCUS {action}: no PMTK001 acknowledgement received.", file=sys.stderr)
+        _print_raw(sentences)
+        raise SystemExit(1)
+
+    print(f"LOCUS {action}: {ack.message}")
+    print(f"Ack: {ack.command} {ack.flag}")
+    if not ack.ok:
+        raise SystemExit(1)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -268,6 +342,8 @@ def _parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("locus-status", parents=[common], help="query LOCUS logger status")
     subparsers.add_parser("status", parents=[common], help="alias for locus-status")
+    subparsers.add_parser("locus-start", parents=[common], help="start LOCUS logging")
+    subparsers.add_parser("locus-stop", parents=[common], help="stop LOCUS logging")
 
     dump = subparsers.add_parser(
         "locus-dump",
@@ -321,6 +397,18 @@ def _is_ack_for(sentence: Sentence, command: str) -> bool:
 def _field(sentence: Sentence, index: int) -> str | None:
     fields = sentence.fields
     return fields[index] if index < len(fields) else None
+
+
+def _locus_dump_words(lines: list[str]) -> list[str]:
+    words: list[str] = []
+    for line in lines:
+        sentence = parse_sentence(line)
+        if sentence is None or sentence.kind != "PMTKLOX" or _field(sentence, 1) != "1":
+            continue
+        for field in sentence.fields[3:]:
+            if re.fullmatch(r"[0-9A-Fa-f]{8}", field):
+                words.append(field.upper())
+    return words
 
 
 def _default_dump_path(lines: list[str] | None = None, captured_at: datetime | None = None) -> Path:

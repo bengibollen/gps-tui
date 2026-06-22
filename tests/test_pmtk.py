@@ -26,7 +26,7 @@ class PmtkTests(TestCase):
         self.assertEqual(ack.command, "622")
         self.assertTrue(ack.ok)
 
-    def test_parse_locus_status(self) -> None:
+    def test_parse_locus_status_stopped(self) -> None:
         sentence = parse_sentence("$PMTKLOG,12,0,1,3,15,0,0,1,123,42*00")
         assert sentence is not None
 
@@ -35,11 +35,11 @@ class PmtkTests(TestCase):
         self.assertEqual(status.serial, 12)
         self.assertEqual(status.type_text, "overlap when full")
         self.assertEqual(status.interval, 15)
-        self.assertEqual(status.status_text, "logging")
+        self.assertEqual(status.status_text, "stopped")
         self.assertEqual(status.records, 123)
         self.assertEqual(status.percent_used, 42)
 
-    def test_parse_real_adafruit_locus_status_with_hex_mode(self) -> None:
+    def test_parse_real_adafruit_locus_status_stopped_with_hex_mode(self) -> None:
         sentence = parse_sentence("$PMTKLOG,0,1,a,31,15,0,0,1,0,0*11")
         assert sentence is not None
 
@@ -50,6 +50,16 @@ class PmtkTests(TestCase):
         self.assertEqual(status.mode, 10)
         self.assertEqual(status.content, 49)
         self.assertEqual(status.interval, 15)
-        self.assertEqual(status.status_text, "logging")
+        self.assertEqual(status.status_text, "stopped")
         self.assertEqual(status.records, 0)
         self.assertEqual(status.percent_used, 0)
+
+    def test_parse_real_adafruit_locus_status_logging(self) -> None:
+        sentence = parse_sentence("$PMTKLOG,1,1,a,31,15,0,0,0,7,0*15")
+        assert sentence is not None
+
+        status = LocusStatus.from_sentence(sentence)
+
+        self.assertEqual(status.serial, 1)
+        self.assertEqual(status.status_text, "logging")
+        self.assertEqual(status.records, 7)

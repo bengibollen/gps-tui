@@ -125,7 +125,7 @@ def _draw(stdscr: Any, state: GpsState, theme: Theme, palette: Palette, paused: 
         info = (0, 0, work_h, info_w)
         sats = (0, info_w, work_h, width - info_w)
     else:
-        info_h = max(9, min(13, work_h // 2))
+        info_h = max(10, min(14, work_h // 2))
         info = (0, 0, info_h, width)
         sats = (info_h, 0, work_h - info_h, width)
 
@@ -168,6 +168,18 @@ def _draw_info(
     row += 1
     _kv(stdscr, row, x + 2, inner_w, "Longitude", _coord(fix.lon, "E", "W"), palette.attr("foreground"), palette)
     row += 1
+    if state.location is not None and height >= 11:
+        _kv(
+            stdscr,
+            row,
+            x + 2,
+            inner_w,
+            "Nearest",
+            f"{state.location.name} ({state.location.distance_text})",
+            palette.attr("accent"),
+            palette,
+        )
+        row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('accuracy')} Accuracy", _accuracy(fix), _accuracy_attr(fix.eph_m, palette), palette)
     row += 1
     _kv(stdscr, row, x + 2, inner_w, f"{theme.symbol('altitude')} Altitude", _meters(fix.alt_m), palette.attr("foreground"), palette)

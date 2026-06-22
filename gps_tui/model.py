@@ -127,6 +127,22 @@ class Sky:
 
 
 @dataclass
+class Location:
+    name: str
+    distance_km: float
+    source: str = "geonames"
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @property
+    def distance_text(self) -> str:
+        if self.distance_km < 1:
+            return f"{self.distance_km * 1000:.0f} m"
+        if self.distance_km < 10:
+            return f"{self.distance_km:.1f} km"
+        return f"{self.distance_km:.0f} km"
+
+
+@dataclass
 class GpsState:
     fix: Fix = field(default_factory=Fix)
     sky: Sky = field(default_factory=Sky)
@@ -136,6 +152,7 @@ class GpsState:
     last_update: datetime | None = None
     min_eph_m: float | None = None
     max_speed_kmh: float | None = None
+    location: Location | None = None
 
     def apply_tpv(self, data: dict[str, Any]) -> None:
         self.fix = Fix.from_tpv(data)
