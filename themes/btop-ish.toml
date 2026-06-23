@@ -15,8 +15,8 @@ used = "bright_green"
 
 [symbols]
 fix = "󰆤"
-satellite = "󰞿"
+satellite = "󰑱"
 accuracy = "󰍉"
 speed = "󰓅"
-altitude = "󰖂"
+altitude = "󰗗"
 time = "󰥔"
