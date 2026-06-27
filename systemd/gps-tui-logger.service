@@ -1,0 +1,19 @@
+[Unit]
+Description=gps-tui gpsd position logger
+After=network.target gpsd.service
+Wants=gpsd.service
+
+[Service]
+Type=simple
+WorkingDirectory=__PROJECT_DIR__
+Environment=GPSD_HOST=localhost
+Environment=GPSD_PORT=2947
+Environment=GPS_LOG_DIR=/var/log/gps
+Environment=GPS_LOG_INTERVAL=1
+EnvironmentFile=-/etc/default/gps-tui-logger
+ExecStart=/usr/bin/python3 -m gps_tui.logger --host ${GPSD_HOST} --port ${GPSD_PORT} --log-dir ${GPS_LOG_DIR} --interval ${GPS_LOG_INTERVAL}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

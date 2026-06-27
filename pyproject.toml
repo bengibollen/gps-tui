@@ -12,6 +12,7 @@ dependencies = []
 gps-tui = "gps_tui.app:main"
 gps-tui-device = "gps_tui.device:main"
 gps-tui-geonames = "gps_tui.geonames:main"
+gps-tui-logger = "gps_tui.logger:main"
 
 [build-system]
 requires = ["setuptools>=68"]

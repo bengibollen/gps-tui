@@ -309,7 +309,9 @@ Concept:
 - Read onboard logger contents.
 - Clear logger storage after confirmation.
 - Configure update rate, GNSS constellations, output messages, baud rate, and
-  logging mode if the hardware supports it.
+  LOCUS interval if the hardware supports it.
+- Support the Adafruit module's observed FullStop logger workflow: dump,
+  verify, erase, restart.
 
 Important implementation note:
 
@@ -327,6 +329,9 @@ Possible UI shape:
 - Explicit confirmation before writes, logger erase, baud changes, or EEPROM
   saves.
 - Clear status/result log for every command sent to the device.
+- Do not expose a cyclic/overwrite logging toggle for the Adafruit module unless
+  a tested command is found. Current evidence says logging type is fixed in
+  firmware to FullStop.
 
 Open questions:
 
@@ -343,7 +348,7 @@ Recommendation:
 
 - **Treat as a separate feature track.** Start with read-only detection and
   capability reporting, then add logger download, then add carefully confirmed
-  configuration writes.
+  FullStop archive operations.
 
 ## 16. Priority-Based Responsive Rendering
 

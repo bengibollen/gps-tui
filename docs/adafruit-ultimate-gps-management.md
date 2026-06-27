@@ -191,8 +191,10 @@ datalogging.
 
 The GlobalTop LOCUS manual describes a more general LOCUS system with modes and
 content bitmaps, but also notes that some configuration is set by GlobalTop.
-That means our first implementation should query status and dump data before
-assuming the interval/content can be changed safely on this Adafruit module.
+On the tested Adafruit MTK3333/PA1616D module, the logging type appears to be
+firmware-fixed to FullStop. `PMTK_LOCUS_CONFIG`/`PMTK187` only gives us a
+practical way to adjust the interval. Do not plan on switching this module to
+cyclic/overwrite logging from `gps-tui`.
 
 Sources:
 
@@ -225,6 +227,15 @@ Fields to display:
 - flash used percentage
 
 This is the safest first LOCUS feature to implement.
+
+Observed on the Adafruit module:
+
+```text
+type 1 = FullStop / stop when full
+```
+
+The type appears to be firmware-fixed. Treat it as status, not as a configurable
+setting.
 
 ### Start or Stop Logger
 
@@ -291,12 +302,16 @@ PMTK001,622,3
 
 Implementation notes:
 
-- Use direct serial for this unless `gpsctl -x` plus gpsd gives reliable access
-  to the complete multi-line dump.
+- Use gpsd raw watch plus `?DEVICE` by default. This has been tested for LOCUS
+  status and is the current default transport in `gps-tui-device`.
+- Keep direct serial as a fallback only.
 - Save the raw `PMTKLOX` dump first before trying to parse it.
 - Parse/export can come after raw download works.
 - The LOCUS manual recommends 115200 baud for reliable dumping, but changing
   baud has its own risks. Test at the module's current baud first.
+- Because this module is FullStop, the archive workflow should dump, verify,
+  optionally convert, then erase and restart logging. Otherwise the logger will
+  eventually fill and stop.
 
 ### Temporary LOCUS Interval Config
 
@@ -309,8 +324,9 @@ description says `PMTK187,mode,setting`, but the printed example includes an
 extra comma: `$PMTK,187,1,5*38`. The checksum in that example matches
 `PMTK187,1,5`, so this looks like a typo in the rendered command text.
 
-Treat this as experimental until tested on the actual Adafruit USB module. It
-also belongs behind an explicit confirmation because it changes logger behavior.
+On the tested Adafruit module this should be treated as the only practical
+LOCUS configuration knob. It can change the logging interval, but not the
+firmware-fixed FullStop/overwrite type.
 
 ## Proposed gps-tui Feature Plan
 
@@ -374,6 +390,25 @@ Add only after read-only and dump paths are reliable:
 - erase logger flash with explicit confirmation
 - temporary LOCUS interval setting
 
+Do not add a logging type switch unless a specific tested command exists for
+this exact module/firmware. Current evidence says the type is fixed to FullStop.
+
+Recommended FullStop archive flow:
+
+```text
+1. query status
+2. stop logger, optional but safest for a stable snapshot
+3. dump used flash to raw .pmtklox
+4. verify PMTKLOX completion and PMTK001 ack
+5. parse/convert when parser exists
+6. erase only after explicit confirmation
+7. start logger again
+```
+
+This can create a small logging gap while stopped. Avoiding the gap means
+dumping while logging, but for FullStop mode we still need a later erase to
+prevent the logger from filling permanently.
+
 ### Phase 4: TUI Management Screen
 
 Once the command layer is reliable, add a TUI screen:
@@ -384,6 +419,7 @@ Once the command layer is reliable, add a TUI screen:
 - start/stop buttons/keys
 - dump progress
 - erase with typed confirmation
+- archive flow for FullStop mode: dump, verify, erase, restart
 - raw command/result log
 
 ## Open Questions for the Pi
